@@ -123,6 +123,17 @@ input[type=text]:focus-visible,button:focus-visible{outline:2px solid var(--acce
   background:var(--ink);color:var(--bg);padding:9px 16px;border-radius:12px;font-size:14px;box-shadow:var(--shadow);opacity:0;pointer-events:none;
   transition:opacity .18s,transform .18s;max-width:calc(100vw - 32px);text-align:center}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.visit{position:relative;align-self:flex-start}
+.visit-btn{font:inherit;font-size:14px;font-weight:500;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:999px;
+  padding:5px 6px 5px 12px;cursor:pointer;display:inline-flex;align-items:center;gap:8px}
+.visit-btn:hover{border-color:var(--accent)}
+.visit-btn svg{width:17px;height:17px;flex:none;stroke:var(--accent);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.visit-num{background:var(--accent);color:var(--accent-ink);border-radius:999px;padding:1px 10px;font-weight:600;font-variant-numeric:tabular-nums;min-width:2.4em;text-align:center}
+.visit-pop{position:absolute;left:0;top:calc(100% + 6px);z-index:40;width:250px;max-width:calc(100vw - 32px);background:var(--surface);border:1px solid var(--line);
+  border-radius:12px;box-shadow:var(--shadow);padding:12px 14px;display:flex;flex-direction:column;gap:6px;font-size:14px}
+.visit-pop .row{display:flex;justify-content:space-between;gap:12px}
+.visit-pop .row b{font-variant-numeric:tabular-nums;font-weight:600}
+.visit-pop small{color:var(--muted);font-size:12px;line-height:1.45}
 @media (max-width:880px){
   .app{grid-template-columns:1fr}
   .side{position:static;max-height:none;overflow:visible;padding-right:0}
@@ -135,6 +146,17 @@ input[type=text]:focus-visible,button:focus-visible{outline:2px solid var(--acce
     <div>
       <p class="eyebrow">ปฏิบัติการระบบนิเวศ</p>
       <h1>สายใยอาหารในระบบนิเวศสระน้ำในอุทยาน 100 ปี</h1>
+    </div>
+    <div class="visit" id="visit" hidden>
+      <button type="button" class="visit-btn" id="visitBtn" aria-expanded="false" aria-controls="visitPop">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.2"/><path d="M3 19c.6-3.2 3-5 6-5s5.4 1.8 6 5"/><circle cx="17" cy="9" r="2.4"/><path d="M16.5 14.2c2.3.2 4 1.7 4.5 4.3"/></svg>
+        <span>จำนวนผู้เข้าใช้งาน</span><span class="visit-num" id="visitNum">…</span>
+      </button>
+      <div class="visit-pop" id="visitPop" hidden>
+        <div class="row"><span>ผู้ใช้งาน (อุปกรณ์ไม่ซ้ำ)</span><b id="vUsers">–</b></div>
+        <div class="row"><span>เปิดใช้งานทั้งหมด</span><b id="vVisits">–</b></div>
+        <small id="vNote">นับ 1 คนต่อ 1 เบราว์เซอร์ เปิดซ้ำจากเครื่องเดิมจะนับเฉพาะยอดเปิดใช้งาน</small>
+      </div>
     </div>
     <ol class="steps">
       <li><span><b>ลากชื่อสิ่งมีชีวิต</b> ไปวางในลำดับขั้นที่เหมาะสม (หรือแตะชื่อ แล้วแตะบนแผ่นงาน)</span></li>
@@ -705,6 +727,43 @@ if (document.fonts) {
   ensureFonts().then(() => { wcache.clear(); state.nodes.forEach(snapToBand); render(); });
 }
 setTimeout(getDownloads, 50);
+
+/* ---------- visitor counter (works on the GitHub Pages copy) ---------- */
+(function counter() {
+  const API = 'https://abacus.jasoncameron.dev', NS = 'tenrm-foodweb-pond100';
+  const LIVE = location.hostname === 'tenrm.github.io';   // only count real visits, not previews/tests
+  const SEEN = 'foodweb-pond100-counted';
+  const fmt = n => Number(n).toLocaleString('th-TH');
+  const get = async (op, key) => {
+    const r = await fetch(`${API}/${op}/${NS}/${key}`, { cache: 'no-store' });
+    if (r.status === 404) return 0;
+    if (!r.ok) throw new Error(r.status);
+    return (await r.json()).value || 0;
+  };
+  let seen = false;
+  try { seen = !!localStorage.getItem(SEEN); } catch (e) {}
+  async function load(count) {
+    const [users, visits] = await Promise.all([
+      get(count && !seen ? 'hit' : 'get', 'users'),
+      get(count ? 'hit' : 'get', 'visits')
+    ]);
+    if (count && !seen) { try { localStorage.setItem(SEEN, '1'); } catch (e) {} seen = true; }
+    $('visitNum').textContent = fmt(users);
+    $('vUsers').textContent = fmt(users) + ' คน';
+    $('vVisits').textContent = fmt(visits) + ' ครั้ง';
+    $('visit').hidden = false;
+  }
+  load(LIVE).catch(() => { $('visit').hidden = true; });   // no network (e.g. sandboxed preview): hide the button
+  const btn = $('visitBtn'), pop = $('visitPop');
+  btn.addEventListener('click', () => {
+    const open = pop.hidden;
+    pop.hidden = !open; btn.setAttribute('aria-expanded', open);
+    if (open) load(false).catch(() => {});
+  });
+  document.addEventListener('pointerdown', e => {
+    if (!pop.hidden && !e.target.closest('#visit')) { pop.hidden = true; btn.setAttribute('aria-expanded', 'false'); }
+  });
+})();
 })();
 </script>
 
